@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Xiaomi 12 Thermal & Perf</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: rgba(22, 27, 34, 0.88);
+            --card-border: rgba(255, 255, 255, 0.1);
+            --text-main: #f0f6fc;
+            --text-sub: #8b949e;
+            --accent-cold: #58a6ff;
+            --accent-undervolt: #3fb950;
+            --accent-gaming: #d29922;
+            --accent-hot: #f85149;
+            --active-glow: 0 0 16px rgba(63, 185, 80, 0.4);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            padding: 16px;
+            padding-bottom: 36px;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .header { text-align: center; margin-bottom: 16px; }
+        .header h1 { font-size: 1.25rem; font-weight: 700; color: #fff; margin-bottom: 4px; }
+        .header p { font-size: 0.78rem; color: var(--text-sub); }
+
+        .temp-banner {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 14px;
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        .temp-title { font-size: 0.85rem; color: var(--text-sub); }
+        .temp-val { font-size: 1.5rem; font-weight: 800; color: var(--accent-undervolt); }
+
+        .section-title {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: var(--text-sub);
+            margin: 16px 0 8px 4px;
+            font-weight: 700;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 12px 14px;
+            margin-bottom: 10px;
+        }
+        .card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        .cluster-name { font-size: 0.88rem; font-weight: 600; }
+        .cluster-sub { font-size: 0.72rem; color: var(--text-sub); }
+        .clock-val { font-size: 0.95rem; font-weight: 700; color: #fff; }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 4px;
+        }
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: var(--accent-cold);
+            border-radius: 4px;
+            transition: width 0.25s ease;
+        }
+
+        .profiles-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .btn-profile {
+            background: var(--card-bg);
+            border: 1.5px solid var(--card-border);
+            border-radius: 14px;
+            padding: 13px 14px;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        .btn-profile:active { transform: scale(0.98); }
+        .btn-profile.active {
+            border-color: var(--accent-undervolt);
+            box-shadow: var(--active-glow);
+            background: rgba(63, 185, 80, 0.12);
+        }
+        .btn-profile.active::after {
+            content: "ACTIVE";
+            position: absolute;
+            right: 14px;
+            top: 14px;
+            font-size: 0.65rem;
+            font-weight: 800;
+            background: var(--accent-undervolt);
+            color: #000;
+            padding: 2px 7px;
+            border-radius: 6px;
+        }
+        .btn-title { font-size: 0.92rem; font-weight: 700; margin-bottom: 3px; }
+        .btn-desc { font-size: 0.74rem; color: var(--text-sub); line-height: 1.35; }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(33, 38, 45, 0.96);
+            border: 1px solid var(--card-border);
+            color: #fff;
+            padding: 8px 18px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            z-index: 100;
+        }
+        .toast.show { opacity: 1; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Xiaomi 12 Thermal & Perf</h1>
+        <p>Snapdragon 8 Gen 1 &bull; LineageOS 24 (Android 17)</p>
+    </div>
+
+    <div class="temp-banner">
+        <div>
+            <div class="temp-title">Battery Temperature</div>
+            <div style="font-size: 0.72rem; color: var(--text-sub);">Native thermal zone sensor</div>
+        </div>
+        <div class="temp-val" id="temp-val">-- &deg;C</div>
+    </div>
+
+    <div class="section-title">Live Hardware Monitor</div>
+
+    <!-- Little Cores -->
+    <div class="card">
+        <div class="card-top">
+            <div>
+                <div class="cluster-name">Little Cores (CPUs 0-3)</div>
+                <div class="cluster-sub">Cortex-A510 &bull; Cap: <span id="p0-max">--</span> MHz</div>
+            </div>
+            <div class="clock-val"><span id="p0-cur">--</span> MHz</div>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="p0-bar"></div></div>
+    </div>
+
+    <!-- Big Cores -->
+    <div class="card">
+        <div class="card-top">
+            <div>
+                <div class="cluster-name">Big Cores (CPUs 4-6)</div>
+                <div class="cluster-sub">Cortex-A710 &bull; Cap: <span id="p4-max">--</span> MHz</div>
+            </div>
+            <div class="clock-val"><span id="p4-cur">--</span> MHz</div>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="p4-bar" style="background: var(--accent-undervolt);"></div></div>
+    </div>
+
+    <!-- Prime Core -->
+    <div class="card">
+        <div class="card-top">
+            <div>
+                <div class="cluster-name">Prime Core (CPU 7)</div>
+                <div class="cluster-sub">Cortex-X2 &bull; Cap: <span id="p7-max">--</span> MHz</div>
+            </div>
+            <div class="clock-val"><span id="p7-cur">--</span> MHz</div>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="p7-bar" style="background: var(--accent-hot);"></div></div>
+    </div>
+
+    <!-- GPU -->
+    <div class="card">
+        <div class="card-top">
+            <div>
+                <div class="cluster-name">GPU Adreno 730</div>
+                <div class="cluster-sub">Power Level: <span id="gpu-level">--</span></div>
+            </div>
+            <div class="clock-val"><span id="gpu-cur">--</span> MHz</div>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="gpu-bar" style="background: #a371f7;"></div></div>
+    </div>
+
+    <div class="section-title">Thermal Profiles (Instant Switch)</div>
+
+    <div class="profiles-grid">
+        <!-- Profile 2 - Undervolt / Sweet Spot -->
+        <div class="btn-profile" id="btn-p2" onclick="applyProfile('2')">
+            <div class="btn-title">⚡ Cool Performance (Recommended Undervolt)</div>
+            <div class="btn-desc">Prime 2.28 GHz &bull; Big 2.11 GHz &bull; Little 1.26 GHz &bull; GPU Level 6. Drops Cortex-X2 voltage from 1.12V to 0.88V (-50% heat) maintaining great speed.</div>
+        </div>
+
+        <!-- Profile 1 - Extreme Cold -->
+        <div class="btn-profile" id="btn-p1" onclick="applyProfile('1')">
+            <div class="btn-title">❄️ Extreme Cold (Eco / Battery Saver)</div>
+            <div class="btn-desc">Prime 1.72 GHz &bull; Big 1.88 GHz &bull; Little 1.07 GHz &bull; GPU Level 8. Maximum battery life and temperatures below 40°C.</div>
+        </div>
+
+        <!-- Profile 3 - Gaming -->
+        <div class="btn-profile" id="btn-p3" onclick="applyProfile('3')">
+            <div class="btn-title">🎮 Gaming Mode (High Performance)</div>
+            <div class="btn-desc">Prime 2.51 GHz &bull; Big 2.34 GHz &bull; Little 1.47 GHz &bull; GPU Level 4. High clocks for stable 60/120 FPS without thermal throttling.</div>
+        </div>
+
+        <!-- Profile 0 - Stock -->
+        <div class="btn-profile" id="btn-p0" onclick="applyProfile('0')">
+            <div class="btn-title">🚀 Maximum Power (Stock 100%)</div>
+            <div class="btn-desc">Factory stock frequencies (Prime 2.84 GHz) and unrestricted GPU.</div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast">Profile updated successfully!</div>
+
+    <script>
+        const MOD_DIR = "/data/adb/modules/cupid-perf-manager";
+
+        function showToast(msg) {
+            if (typeof ksu !== "undefined" && typeof ksu.toast === "function") {
+                try { ksu.toast(msg); } catch(e) {}
+            }
+            const t = document.getElementById("toast");
+            t.textContent = msg;
+            t.classList.add("show");
+            setTimeout(() => t.classList.remove("show"), 2000);
+        }
+
+        // Bridge executor supporting both synchronous and callback mechanisms
+        function execCommand(cmd, callback) {
+            if (typeof ksu !== "undefined" && typeof ksu.exec === "function") {
+                try {
+                    const res = ksu.exec(cmd);
+                    if (typeof res === "string" && res.length > 0) {
+                        callback(res);
+                        return;
+                    }
+                } catch (e) {}
+
+                try {
+                    window.__ksu_cb = function(code, stdout, stderr) { callback(stdout || ""); };
+                    ksu.exec(cmd, "__ksu_cb");
+                    return;
+                } catch (e) {}
+            }
+            callback("");
+        }
+
+        function updateStatus() {
+            execCommand(`sh ${MOD_DIR}/get_status.sh`, function(out) {
+                if (!out) return;
+                try {
+                    const data = JSON.parse(out.trim());
+
+                    // Little Cores
+                    const p0Cur = Math.round(data.little_cur / 1000);
+                    const p0Max = Math.round(data.little_max / 1000);
+                    document.getElementById("p0-cur").textContent = p0Cur;
+                    document.getElementById("p0-max").textContent = p0Max;
+                    document.getElementById("p0-bar").style.width = Math.min(100, Math.round((p0Cur / 1785) * 100)) + "%";
+
+                    // Big Cores
+                    const p4Cur = Math.round(data.big_cur / 1000);
+                    const p4Max = Math.round(data.big_max / 1000);
+                    document.getElementById("p4-cur").textContent = p4Cur;
+                    document.getElementById("p4-max").textContent = p4Max;
+                    document.getElementById("p4-bar").style.width = Math.min(100, Math.round((p4Cur / 2419) * 100)) + "%";
+
+                    // Prime Core
+                    const p7Cur = Math.round(data.prime_cur / 1000);
+                    const p7Max = Math.round(data.prime_max / 1000);
+                    document.getElementById("p7-cur").textContent = p7Cur;
+                    document.getElementById("p7-max").textContent = p7Max;
+                    document.getElementById("p7-bar").style.width = Math.min(100, Math.round((p7Cur / 2841) * 100)) + "%";
+
+                    // GPU
+                    const gpuCur = Math.round(data.gpu_cur / 1000000);
+                    document.getElementById("gpu-cur").textContent = gpuCur;
+                    document.getElementById("gpu-level").textContent = data.gpu_level;
+                    document.getElementById("gpu-bar").style.width = Math.min(100, Math.round((gpuCur / 818) * 100)) + "%";
+
+                    // Battery Temperature
+                    const tempEl = document.getElementById("temp-val");
+                    tempEl.textContent = data.battery_temp + " °C";
+                    const tempNum = parseFloat(data.battery_temp);
+                    if (tempNum < 38) tempEl.style.color = "var(--accent-cold)";
+                    else if (tempNum < 43) tempEl.style.color = "var(--accent-undervolt)";
+                    else tempEl.style.color = "var(--accent-hot)";
+
+                    // Active Profile Button
+                    document.querySelectorAll(".btn-profile").forEach(b => b.classList.remove("active"));
+                    if (data.profile === "1") document.getElementById("btn-p1")?.classList.add("active");
+                    else if (data.profile === "2") document.getElementById("btn-p2")?.classList.add("active");
+                    else if (data.profile === "3") document.getElementById("btn-p3")?.classList.add("active");
+                    else if (data.profile === "0") document.getElementById("btn-p0")?.classList.add("active");
+
+                } catch (e) {}
+            });
+        }
+
+        function applyProfile(p) {
+            execCommand(`sh ${MOD_DIR}/set_profile.sh ${p}`, function() {
+                showToast("Profile applied in real-time!");
+                setTimeout(updateStatus, 200);
+            });
+        }
+
+        // Initial fetch and 1.2s refresh cycle
+        updateStatus();
+        setInterval(updateStatus, 1200);
+    </script>
+</body>
+</html>

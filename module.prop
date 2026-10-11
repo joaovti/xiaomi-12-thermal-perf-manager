@@ -1,0 +1,6 @@
+id=cupid-perf-manager
+name=Xiaomi 12 Thermal & Performance Manager
+version=v1.0
+versionCode=100
+author=joaovti
+description=Native thermal and performance manager with interactive WebUI for Xiaomi 12 (cupid). Real-time clock monitoring and instant profile switching.
